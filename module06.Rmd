@@ -1,0 +1,45 @@
+---
+title: 'Visual Analytics: Differences and Deviations'
+author: 'usfeleff'
+date: '2021-02-22'
+output: html_document
+---
+
+Please see the discussion at https://thestorythusr.wordpress.com/2021/02/21/visual-analytics-differences-deviations/
+
+```{r setup, message = FALSE}
+library(ggplot2)
+```
+
+
+```{R, ""}
+myMTCars <- mtcars
+# mt cars has the carnames stored as the rownames, which is annoying
+# so we will "extract" them to a proper column, ggplot will be happier this
+# way anyway
+myMTCars$carName <- rownames(myMTCars)
+
+# get average mpg and decide if each car is better or worse so that we can
+# easily color things in a moment
+avgMpg <- mean(myMTCars$mpg)
+myMTCars$mpgCompare <- ifelse(myMTCars$mpg < avgMpg, "below avg", "above avg")
+
+# I want a plot that shows the difference for each car from the average, so
+# calculate that and sort the frame
+myMTCars$mpgDiff <- myMTCars$mpg - avgMpg
+myMTCars <- myMTCars[order(myMTCars$mpgDiff),]
+
+# ggplot and the sort don't seem to want to work, hence the reorder
+ggplot(myMTCars, aes(x=reorder(carName,mpgDiff), y=mpgDiff)) +
+  # generate the geometry layer (plot)
+  geom_bar(stat='identity',aes(fill = mpgCompare)) +
+  # set some pleasing colors, I am partial to Ethan Schoonover's solarized
+  # palette
+  scale_fill_manual(values = c("below avg" = "#d33682", "above avg" = "#6c71c4")) +
+  # rotate our x labels so they can actually be read, and remove the title
+  # above the legend with the silly way ggplot makes you do it, then add titles
+  # and axis labels
+  theme(axis.text.x = element_text(angle =90), legend.title=element_blank()) +
+  labs(title="Car Mileage", subtitle=paste("difference from ",round(avgMpg,1),"mpg average") , x="", y="+/- Avg. MPG")
+
+```
