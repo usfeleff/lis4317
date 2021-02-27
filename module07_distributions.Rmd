@@ -1,0 +1,103 @@
+---
+title: 'LIS4317 | Visual Analytics | Distribution Analysis'
+author: 'usfeleff'
+date: '2021-03-01'
+output: html_document
+---
+
+Please see the discussion at https://thestorythusr.wordpress.com/2021/02/26/visual-analytics-distributions/
+
+```{r setup, message = FALSE}
+# depending on the system imager may have some external dependencies
+# see the project homepage at: http://dahtah.github.io/imager/
+library(imager) # for reading images and extracting color channels
+library(ggplot2) # for plotting
+library(scales)  # for colorizing channel plots
+```
+
+
+```{r, ""}
+# read the image
+img<-load.image("./data/mandrill.png")
+
+# Plot the full color image
+plot(img, axes = FALSE, main = "RGB")
+
+# Plot the individual channels both in greyscale and in their own color
+plot(R(img), axes = FALSE, main = "Red Channel")
+cscale <- gradient_n_pal(c("white", "red"),c(0,1))
+plot(R(img), axes = FALSE, main = "Red Channel", rescale=FALSE, colourscale=cscale)
+
+plot(G(img), axes = FALSE, main = "Green Channel")
+cscale <- gradient_n_pal(c("white", "green"),c(0,1))
+plot(G(img), axes = FALSE, main = "Green Channel", rescale=FALSE, colourscale=cscale)
+
+plot(B(img), axes = FALSE, main = "Blue Channel")
+cscale <- gradient_n_pal(c("white", "blue"),c(0,1))
+plot(B(img), axes = FALSE, main = "Blue Channel", rescale=FALSE, colourscale=cscale)
+
+# The imager package uses "cimg" objects, which ggplot will not accept.
+# For each channel these lines convert to a dataframe, remove the first
+# two columns which store pixel location which we do not need, and add
+# a column identifying what channel each value came from. The channel column
+# will be used as factors when plotting everything on a single plot
+
+rDF <- as.data.frame(R(img))
+rDF <- data.frame("value" = rDF[,3])
+rDF$channel <- rep("red", length(rDF$value))
+
+gDF <- as.data.frame(G(img))
+gDF <- data.frame("value" = gDF[,3])
+gDF$channel <- rep("green", length(gDF$value))
+
+bDF <- as.data.frame(B(img))
+bDF <- data.frame("value" = bDF[,3])
+bDF$channel <- rep("blue", length(bDF$value))
+
+
+# use ggplot to create a sample histogram with density curve
+
+ggplot(rDF, aes(x=value, color="", fill="")) +
+   geom_histogram(aes(y=..density..)) +
+   geom_density(color="black", alpha=0, size=1) +
+   coord_cartesian(ylim = c(0, 2.25)) +
+   labs(title="Red Channel -- Histogram v. Density Curve") +
+   theme(legend.position = "none")
+   
+# create density plots for each channel
+ggplot(rDF,aes(x=value, color="", fill="")) +
+   geom_density(alpha=.5) +
+   scale_color_manual(values="black") +
+   scale_fill_manual(values = "red") +
+   coord_cartesian(ylim = c(0, 2.25)) +
+   labs(title="Red Channel Densities") +
+   theme(legend.position = "none")
+
+ggplot(gDF,aes(x=value, color="", fill="")) +
+   geom_density(alpha=.5) +
+   scale_color_manual(values="black") +
+   scale_fill_manual(values = "green") +
+   coord_cartesian(ylim = c(0, 2.25)) +
+   labs(title="Green Channel Densities") +
+   theme(legend.position = "none")
+
+ggplot(bDF,aes(x=value, color="", fill="")) +
+   geom_density(alpha=.5) +
+   scale_color_manual(values="black") +
+   scale_fill_manual(values = "blue") +
+   coord_cartesian(ylim = c(0, 2.25)) +
+   labs(title="Blue Channel Densities") +
+   theme(legend.position = "none")
+
+# bind all channels into a single frame and plot using the added channel column
+# to create three densities on a single plot
+rgbFrame <- rbind(rDF, gDF, bDF)
+
+ggplot(rgbFrame, aes(x=value)) +
+  geom_density(aes(fill=factor(channel, levels=c("red","green", "blue"))), alpha=.5) +
+  scale_fill_discrete(name="") +
+  coord_cartesian(ylim = c(0, 2.25)) +
+  labs(title="Combined RGB Densities") +
+  theme(legend.position = "none")
+
+```
