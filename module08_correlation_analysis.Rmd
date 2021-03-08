@@ -45,9 +45,38 @@ ggplot(myCars, aes(x=hp, y=mpg, size=displacement)) +
 ggplot(myCars, aes(x=hp, y=mpg, size=displacement, color=weight)) +
   geom_point()
 
-ggplot(myCars, aes(x=hp, y=mpg)) +
-  geom_point() +
-  geom_smooth(method="lm", formula=y ~ x)
+
+
+lmHpMpg <- lm(data=myCars, mpg ~ hp)
+
+# extract the lm coefficients, doing this here instead of inline is more legible
+# the values will be overwritten before subsequent plots
+slope <- round(lmHpMpg$coefficients[2],3)
+yInter <- round(lmHpMpg$coefficients[1],3)
+# may as well do the x-intercept as well
+xInter <- round(-yInter/slope,3)
+
+pCoeff<-round(cor(myCars$hp, myCars$mpg, method="pearson"),3)
+
+mpgByHP <- ggplot(myCars, aes(x=hp, y=mpg)) +
+    geom_point() +
+  labs(title="Correlating Horsepower and Miles Per Gallon",
+       x = "Horsepower",
+       y = "Miles Per Gallon") +
+#  scale_color_gradient(name="Precipitation", 
+ #                      low="light blue", high="blue") +
+ # scale_size(name="Adult\nPopulation", range=c(1,3))
+  geom_smooth(method="lm", formula=y ~ x) +
+  labs( subtitle = "(L2 (least square) regression)",
+    caption = paste("pearson coefficient =", pCoeff,
+                    "; regression: slope =", slope, 
+                       ", x-intercept =", xInter,
+                       ", y-intercept =", yInter))
+
+
+
+mpgByHP
+
 
 ```
 ```{r, "3d plot"}
