@@ -1,0 +1,166 @@
+---
+title: "main"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, echo=FALSE, warning=FALSE}
+library(gdata)
+library(ggplot2)
+library(scales) # will need to flip my date order
+library(lubridate) # to calculate EOL Dates
+library(dplyr)
+```
+
+
+```{r load data, echo=FALSE, warning=FALSE, error=FALSE}
+satelliteDF <- as.data.frame(readxl::read_excel("./data/UCS-Satellite-Database-1-1-2021.xls"), stringsAsFactors = TRUE)
+```
+
+```{r cleanup}
+origColNames <- colnames(satelliteDF)
+# satelliteDF will store the unadultarated data, should I need it again, sDF will be my main working copy
+sDF <- satelliteDF[,c(2:25)]
+# there are really a lot more columns than I am going to need, so I am going to 
+# pair further down for sanity.
+sDF<-sDF[,c(1,3,5,6,8,9,11,12,15,16,19,20,23,24)]
+
+
+newColNames <- c("name", "country", "users", "usage", "orbit", "orbit_type", "perigee", "apogee", "period", "mass", "launch_date", "lifetime", "launch_site", "launch_vehicle")
+
+colnames(sDF) <- newColNames
+
+# clean up numerics
+toNum <-c("period", "lifetime")
+for (i in toNum) {
+  sDF[,which(names(sDF)==i)]<-as.numeric(gsub("[^0-9.-]", "", sDF[,which(names(sDF)==i)]))#
+}
+
+# get years and decades
+sDF$launch_year <- year(ymd(sDF$launch_date))
+# Better way to do this? Almost certainly. One that unreasonably amuses me as
+# much as this hack does? Probably not.
+sDF$launch_decade <- trunc(sDF$launch_year /10)*10
+
+# sort frame by date
+sDF <- sDF %>% arrange(ymd(sDF$launch_date))
+# add end of life dates
+sDF$eol_date <- sDF$launch_date %m+% years(round(sDF$lifetime))
+sDF$eol_year <- year(ymd(sDF$eol_date)) 
+# add object numbers
+sDF$object_number <- seq.int(nrow(sDF))
+
+# subset those which are not eol
+active<-sDF[which(sDF$eol_year>220),]
+```
+
+```{r descriptive statistics}
+str(satelliteDF)
+summary(satelliteDF)
+```
+
+```{r reverse date function}
+# reversing date scale code from post by Hadley Wickham:
+# ggplot(sDF, aes(y=launch_date)) +geom_violin(aes(x=mass_launch))
+
+c_trans <- function(a, b, breaks = b$breaks, format = b$format) {
+  a <- as.trans(a)
+  b <- as.trans(b)
+
+  name <- paste(a$name, b$name, sep = "-")
+
+  trans <- function(x) a$trans(b$trans(x))
+  inv <- function(x) b$inverse(a$inverse(x))
+
+  trans_new(name, trans, inverse = inv, breaks = breaks, format=format)
+
+}
+
+rev_date <- c_trans("reverse", "time")
+```
+
+
+```{r time series, fig.height=4, fig.width=2.25}
+
+ggplot(sDF, aes(x=mass, y=launch_date)) +
+  geom_violin() +
+  theme( axis.ticks.x = element_blank(),
+         axis.text.x = element_blank()) +
+  labs(title="Launched Orbital Mass", y="", x="")
+```
+```{r time series, fig.height=2.25, fig.width=4}
+ggplot(sDF, aes(x=as.double(launch_year), y=as.double(object_number))) +
+  geom_smooth(color="black", fill="blue", alpha=.2, se=F) +
+  labs(title="Total Number of Launched Objects in Orbit",
+       y="", x="")
+
+```
+```{r leo linear view, fig.width = 12}
+
+
+ggplot(active[which(active$orbit=="LEO"),], aes(x=name, y=((perigee+apogee)/2))) +
+  geom_point(size=2, color="red", fill=alpha("orange", 0.3), alpha=0.7, shape=21, stroke=1) +
+  geom_segment(aes(x=name, xend=name, y=0, yend=apogee), size=0.1, color="blue", linetype="dotted") +
+  theme(axis.text.x=element_blank()) +
+  labs(main="Satellites in Low Earth Orbit ",
+       y="altitude",
+       x="")
+
+
+
+```
+```{r leo polar view, fig.width = 10}
+
+ggplot(active[which(active$orbit=="LEO"),], aes(x=name, y=((perigee+apogee)/2))) +
+  geom_point(size=2, color="red", fill=alpha("orange", 0.3), alpha=0.7, shape=21, stroke=1) +
+  geom_segment(aes(x=name, xend=name, y=0, yend=apogee), size=0.1, color="blue", linetype="dotted") +
+  theme(axis.text=element_blank(),
+          axis.title = element_blank(),
+          panel.grid = element_blank(),
+          plot.margin=unit(rep(-2,4),"cm")
+        ) +
+  labs(main="Satellites in Low Earth Orbit ",
+       y="altitude") +
+  coord_polar(start=0)
+
+
+
+```
+
+```{r leo polar view, fig.width = 10}
+
+ggplot(active[which(active$orbit=="LEO"),], aes(x=name, y=((perigee+apogee)/2))) +
+  geom_point(size=2, aes(color=usage, fill=users), alpha=0.7, shape=21, stroke=1) +
+  geom_segment(aes(x=name, xend=name, y=0, yend=apogee), size=0.1, color="blue", linetype="dotted") +
+  theme(axis.text=element_blank(),
+          axis.title = element_blank(),
+          panel.grid = element_blank(),
+          plot.margin=unit(rep(-2,4),"cm")
+        ) +
+  labs(main="Satellites in Low Earth Orbit ",
+       y="altitude") +
+  coord_polar(start=0)
+
+
+
+```
+
+```{r}
+totalMass <- data.frame(date=sDF$launch_date, mass=sDF$launch_mass)
+totalMass<-rbind(totalMass, data.frame(date=eol$eol_date, mass=eol$mass))line
+
+ggplot(totalMass, aes(x=mass, y=date)) +
+  geom_violin()
+# ggplot(sDF, aes(x=launch_date, color="", fill="")) +
+#   geom_histogram(aes(y=launch_mass)) +
+#   geom_density()
+
+```
+
+```{r orbits}
+sDF$avg_alt <- (sDF$apogee + sDF$perigee)/2
+
+```
